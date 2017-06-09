@@ -1,0 +1,71 @@
+--- # Ansible Playbook to install  Web Server and Use it to create Pre bake image 
+
+- hosts: webservers 
+  connection: ssh
+  remote_user: ec2-user
+  become: yes
+  gather_facts: yes
+  tasks:
+  - name: Apache server installation started
+    yum: name={{ item }} state=latest
+    with_items:
+      - httpd
+      - wget
+    notify:
+      - CopySiteFiles
+      - RestartHTTPD
+      - WaitForSite
+      - TestSite
+      - DisplayResults
+  handlers:
+  - name: CopySiteFiles
+    copy: src=temp/index.html dest=/var/www/html/index.html owner=root group=root mode=0655 backup=yes
+  - name: RestartHTTPD
+    service: name=httpd state=restarted
+  - name: WaitForSite
+    wait_for: host={{ ansible_nodename }} port=80 delay=5
+  - name: TestSite
+    shell: /usr/bin/wget http://localhost
+    register: site_result
+  - name: DisplayResults
+    debug: var=site_result
+
+- hosts: localhost
+  connection: local
+  remote_user: dhana
+  become: yes
+  gather_facts: no
+  vars_files:
+  - temp/cred_aws.yml
+  tasks:
+  - name: Take a snapshot backup of the website directory
+    ec2_snapshot:
+      aws_access_key: "{{ aws_akey }}"
+      aws_secret_key: "{{ aws_skey }}"
+      region: "{{ aws_region }}"
+      instance_id: "{{ awsinstanceid }}"
+      device_name: "{{ device_name }}"
+      description: Initial Playbook Static Site Deployment Backup
+      wait: no
+    register: snapshot_results
+    notify:
+    - DisplaySnapshotResults
+    - CreateNewAMITemplate
+    - DisplayAMICreationResults
+  handlers:
+  - name: DisplaySnapshotResults
+    debug: var=snapshot_results
+  - name: CreateNewAMITemplate
+    ec2_ami:
+      aws_access_key: "{{ aws_akey }}"
+      aws_secret_key: "{{ aws_skey }}"
+      region: "{{ aws_region }}"
+      instance_id: "{{ awsinstanceid }}"
+      wait: no
+      name: myansibleamitemplateForeSee
+      tags:
+        Name: MyNewAnsibleAMITemplateforesee
+        Service: TestAMITemplatePlaybookForeSee
+    register: ami_results
+  - name: DisplayAMICreationResults
+    debug: var=ami_results

@@ -1,0 +1,5 @@
+aws_akey : your access key
+aws_skey : your secret key
+aws_region : your region
+awsinstanceid : your instance id (example i-0187a21647b70192b)
+device_name : EBS path /dev/xvda
